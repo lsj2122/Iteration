@@ -1,11 +1,10 @@
 ---
-title: "Iteration and Listcols"
+title: "Writing Functions"
 output: github_document
 ---
 
 ```{r}
 library(tidyverse)
-library(rvest)
 
 knitr::opts_chunk$set(
 	echo = TRUE,
@@ -26,123 +25,225 @@ scale_colour_discrete = scale_colour_viridis_d
 scale_fill_discrete = scale_fill_viridis_d
 ```
 
+
+```{r}
+library(tidyverse)
+library(rvest)
+```
+
+Set seed for reproducibility
+
 ```{r}
 set.seed(12345)
 ```
 
+### Z score function
 
-### Lists
+Z scores subtract the mean and divide by the sd.
 
 ```{r}
-vec_numeric = 5:8
-vec_char = c("My", "name", "is", "laylah")
+x_vec = rnorm(20, mean = 5, sd = .3)
+```
 
-tibble(
-  num = vec_numeric,
-  char = vec_char
-)
+Compute Z scores for `x_vec`.
 
-vec_logical = c(TRUE, TRUE, TRUE, FALSE)
+```{r}
+(x_vec - mean(x_vec)) / sd(x_vec)
 ```
 
 
-Different stuff with different lengths
+Write a function to do this!
 
 ```{r}
-l = list(
-  vec_numeric = 5:8,
-  vec_char = LETTERS,
-  mat         = matrix(1:8, 2, 4),
-  vec_logical = c(TRUE, FALSE),
-  summary     = summary(rnorm(1000)))
-l
+z_score = function(x) {
+  
+  if (!is.numeric(x)) {
+    stop("Argument should be numbers")
+  } else if (length(x) < 2) {
+    stop("You need at least 2 numbers to get z scores")
+  }
+  
+  z = (x - mean(x)) / sd(x)
+  
+  z
+  
+}
+```
+
+Check that this works.
+
+```{r}
+z_score(x = x_vec)
+
+z_score(x = rnorm(10, mean = 5))
 ```
 
 
-Accessing lists
+Keep checking.
 
-```{r}
-l$vec_numeric
+```{r, error = TRUE}
+z_score(x = 3)
 
-l[[1]]
+z_score(c("my", "name", "is", "laylah"))
 
-l[[1]][1:3]
+z_score(c(TRUE, TRUE, FALSE, TRUE))
+
+z_score(iris)
 ```
 
-### for loops
 
-```{r}
-list_norms = 
-  list(
-    a = rnorm(20, 3, 1),
-    b = rnorm(20, 0, 5),
-    c = rnorm(20, 10, .2),
-    d = rnorm(20, -3, 1)
-  )
+### Multiple Outputs
 
-is.list(list_norms)
-```
+Write a function that returns the mean and sd from a sample of numbers.
 
 ```{r}
 mean_and_sd = function(x) {
   
   if (!is.numeric(x)) {
-    stop("Argument x should be numeric")
-  } else if (length(x) == 1) {
-    stop("Cannot be computed for length 1 vectors")
+    stop("Argument should be numbers")
+  } else if (length(x) < 2) {
+    stop("You need at least 2 numbers to get z scores")
   }
   
   mean_x = mean(x)
   sd_x = sd(x)
-
+  
   tibble(
     mean = mean_x, 
     sd = sd_x
   )
+  
 }
 ```
 
-```{r}
-mean_and_sd(list_norms[[1]])
-
-mean_and_sd(list_norms[[2]])
-
-mean_and_sd(list_norms[[3]])
-
-mean_and_sd(list_norms[[4]])
-```
+Double check I did this right...
 
 ```{r}
-output = vector("list", length = 4)
-
-for (i in 1:4) {
-  output[[i]] = mean_and_sd(list_norms[[i]])
-}
+mean_and_sd(x_vec)
 ```
 
 
-### use `map`
+
+### Start getting means and sds
 
 ```{r}
-output = map(list_norms, mean_and_sd)
 
-output = vector("list", length = 4)
+x_vec = rnorm(n = 30, mean = 5, sd = .5)
 
-for (i in 1:4) {
-  output[[i]] = median(list_norms[[i]])
-}
-
-output = map(list_norms, median)
-```
-
-
-### Create DF
-
-```{r}
- listcol_df = 
-  tibble(
-    name = c("a", "b", "c", "d"),
-    samp = list_norms
+tibble(
+    mean = mean(x_vec), 
+    sd = sd(x_vec)
   )
+
+```
+
+Let's write a function that uses `n`, a true mean, and true SD as inputs.
+
+```{r}
+sim_mean_sd = function(n_obs, mu = 5, sigma = 1) {
+  
+  x_vec = rnorm(n = n_obs, mean = mu, sd = sigma)
+
+  tibble(
+    mean = mean(x_vec), 
+    sd = sd(x_vec)
+  )
+  
+}
+
+sim_mean_sd(n_obs = 3000, mu = 50)
+
+sim_mean_sd(mu = 12, 24, 4)
+```
+
+
+### Revisiting LotR data
+
+```{r}
+fellowship_ring = 
+  readxl::read_excel("./data/LotR_Words.xlsx", range = "B3:D6") |>
+  mutate(movie = "fellowship_ring") |> 
+  janitor::clean_names() |> 
+  select(movie)
+
+lotr_load_and_tidy = function(path = "./data/LotR_Words.xlsx", cell_range, movie_name) {
+  
+  movie_df = readxl::read_excel(path, range = cell_range) |> 
+    mutate(movie = movie_name) |> 
+    janitor::clean_names() |> 
+    pivot_longer(
+      female:male,
+      names_to = "sex",
+      values_to = "words"
+    ) |> 
+    select(movie, everything())
+  
+  
+  movie_df
+    
+}
+
+lotr_df = 
+  bind_rows(
+    lotr_load_and_tidy(cell_range = "B3:D6", movie_name = "fellowship_ring"),
+    lotr_load_and_tidy(cell_range = "F3:H6", movie_name = "two_towers"),
+    lotr_load_and_tidy(cell_range = "J3:L6", movie_name = "return_king")
+)
+
+```
+
+
+### NSDUH Data 
+
+```{r}
+nsduh_url = "http://samhda.s3-us-gov-west-1.amazonaws.com/s3fs-public/field-uploads/2k15StateFiles/NSDUHsaeShortTermCHG2015.htm"
+
+nsduh_html = read_html(nsduh_url)
+
+data_marj = 
+  nsduh_html |> 
+  html_table() |> 
+  nth(1) |>
+  slice(-1) |> 
+  select(-contains("P Value")) |>
+  pivot_longer(
+    -State,
+    names_to = "age_year", 
+    values_to = "percent") |>
+  separate(age_year, into = c("age", "year"), sep = "\\(") |>
+  mutate(
+    year = str_replace(year, "\\)", ""),
+    percent = str_replace(percent, "[a-c]$", ""),
+    percent = as.numeric(percent)) |>
+  filter(!(State %in% c("Total U.S.", "Northeast", "Midwest", "South", "West")))
+
+```
+
+Try to write a quick function.
+
+```{r}
+nsduh_import = function(html, table_number, outcome_name) {
+  
+  html |> 
+  html_table() |> 
+  nth(table_number) |>
+  slice(-1) |> 
+  select(-contains("P Value")) |>
+  pivot_longer(
+    -State,
+    names_to = "age_year", 
+    values_to = "percent") |>
+  separate(age_year, into = c("age", "year"), sep = "\\(") |>
+  mutate(
+    year = str_replace(year, "\\)", ""),
+    percent = str_replace(percent, "[a-c]$", ""),
+    percent = as.numeric(percent),
+    outcome = outcome_name) |>
+  filter(!(State %in% c("Total U.S.", "Northeast", "Midwest", "South", "West")))
+  
+}
+
+nsduh_import(html = nsduh_html, table_number = 1, outcome_name = "marj")
+nsduh_import(html = nsduh_html, table_number = 4, outcome_name = "cocaine")
 ```
 
