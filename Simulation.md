@@ -128,3 +128,113 @@ sim_result_df |>
 ```
 
 <img src="Simulation_files/figure-gfm/unnamed-chunk-7-1.png" width="90%" />
+
+## SLR
+
+Goal is to write a function that simulates data and then fits a
+regression; then repeat to look at the distribution of estimated
+coefficients.
+
+``` r
+beta_0 = 2
+beta_1 = 3
+
+sim_data = 
+  tibble(
+    x = rnorm(n = 30, mean = 1, sd = 1),
+    y = beta_0 + beta_1 * x + rnorm(30, 0, 1)
+  )
+
+ls_fit = lm(y ~ x, data = sim_data)
+ls_fit
+```
+
+    ## 
+    ## Call:
+    ## lm(formula = y ~ x, data = sim_data)
+    ## 
+    ## Coefficients:
+    ## (Intercept)            x  
+    ##       1.993        3.100
+
+``` r
+sim_data |> 
+  ggplot(aes(x = x, y = y)) +
+  geom_point()
+```
+
+<img src="Simulation_files/figure-gfm/unnamed-chunk-8-1.png" width="90%" />
+
+Let’s wrap this in a function
+
+``` r
+sim_slr = function(n_obs, beta_0 = 2, beta_1 = 3) {
+  
+  sim_data = 
+    tibble(
+      x = rnorm(n = 30, mean = 1, sd = 1),
+      y = beta_0 + beta_1 * x + rnorm(30, 0, 1)
+  )
+
+  ls_fit = lm(y ~ x, data = sim_data)
+  
+  tibble(
+    beta0_hat = coef(ls_fit)[1],
+    beta1_hat = coef(ls_fit)[2]
+  )
+  
+  
+}
+
+sim_slr(n_obs = 30)
+```
+
+    ## # A tibble: 1 × 2
+    ##   beta0_hat beta1_hat
+    ##       <dbl>     <dbl>
+    ## 1      1.69      2.83
+
+run this a whole bunch of times
+
+``` r
+sim_result_df = 
+  expand_grid(
+    sample_size = 30,
+    iter = 1:1000
+  ) |> 
+  mutate(estimate_df = map(sample_size, sim_slr)) |> 
+  unnest(estimate_df)
+```
+
+Let’s look at results
+
+``` r
+sim_result_df |> 
+  summarize(
+    mean_b0_hat = mean(beta0_hat),
+    mean_b1_hat = mean(beta1_hat)
+  )
+```
+
+    ## # A tibble: 1 × 2
+    ##   mean_b0_hat mean_b1_hat
+    ##         <dbl>       <dbl>
+    ## 1        2.00        3.00
+
+``` r
+sim_result_df |> 
+  ggplot(aes(x = beta0_hat)) +
+  geom_histogram()
+```
+
+    ## `stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+
+<img src="Simulation_files/figure-gfm/unnamed-chunk-11-1.png" width="90%" />
+
+``` r
+sim_result_df |> 
+  ggplot(aes(x = beta0_hat, y = beta1_hat)) +
+  geom_point()
+```
+
+<img src="Simulation_files/figure-gfm/unnamed-chunk-11-2.png" width="90%" />
